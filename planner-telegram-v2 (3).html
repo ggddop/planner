@@ -1,0 +1,2348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Планер">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f1117">
+    <title>Планер</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        :root {
+            --bg:         #0f1117;
+            --bg-2:       #1a1d27;
+            --bg-3:       #22263a;
+            --border:     #2e3347;
+            --text:       #e2e8f0;
+            --text-muted: #718096;
+            --text-light: #a0aec0;
+            --accent:     #6366f1;
+            --accent-2:   #818cf8;
+            --green:      #10b981;
+            --red:        #ef4444;
+            --shadow:     rgba(0,0,0,0.4);
+            --nav-h:      64px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100dvh;
+            overflow-x: hidden;
+        }
+
+        /* ===== ВЕРХНЯЯ ШАПКА ===== */
+        .top-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px;
+            background: var(--bg-2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 100;
+            padding-top: env(safe-area-inset-top, 0);
+        }
+
+        .top-bar-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .top-bar-date {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .top-bar-xp {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-2);
+        }
+
+        /* ===== ОСНОВНОЙ КОНТЕНТ ===== */
+        .main-content {
+            padding-top: calc(56px + env(safe-area-inset-top, 0px));
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+            min-height: 100dvh;
+        }
+
+        /* ===== СТРАНИЦЫ ===== */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .page-content {
+            padding: 16px;
+        }
+
+        /* ===== ПРОГРЕСС-БАР ===== */
+        .progress-wrap {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .progress-label-text { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .progress-pct { font-size: 14px; font-weight: 700; color: var(--accent-2); }
+
+        .progress-track {
+            height: 8px;
+            background: var(--bg-3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        /* ===== СЕКЦИИ ===== */
+        .section {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        /* ===== ИНПУТЫ ===== */
+        .input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .task-input {
+            flex: 1;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 11px 14px;
+            font-size: 15px;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .task-input:focus {
+            border-color: var(--accent);
+        }
+
+        .task-input::placeholder { color: var(--text-light); }
+
+        .add-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+
+        .add-btn:active { opacity: 0.8; }
+
+        /* ===== ЗАДАЧИ ===== */
+        .task-list { list-style: none; }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 13px 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            text-decoration-color: var(--accent);
+            text-decoration-thickness: 2px;
+            opacity: 0.6;
+        }
+
+        .task-checkbox {
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            flex-shrink: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            background: var(--bg-2);
+        }
+
+        .task-checkbox.checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .task-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .task-text {
+            flex: 1;
+            font-size: 15px;
+            color: var(--text);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .task-delete {
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .task-delete:active { background: rgba(239,68,68,0.15); color: var(--red); }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-light);
+            font-size: 14px;
+            padding: 20px 0;
+        }
+
+        /* ===== ГЛАВНАЯ ЗАДАЧА ===== */
+        .main-task-item {
+            background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(129,140,248,0.08));
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .main-task-item .task-text {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        /* ===== ПРИВЫЧКИ ===== */
+        .habit-item {
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+        }
+
+        .habit-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .habit-name-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .habit-delete {
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .habit-days {
+            display: flex;
+            gap: 4px;
+            justify-content: space-between;
+        }
+
+        .habit-day {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .habit-day-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .habit-check {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .habit-check.checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .habit-check.checked::after { content: '✓'; color: white; font-weight: 700; }
+
+        .habit-check.today {
+            border-color: var(--accent-2);
+            box-shadow: 0 0 0 2px rgba(99,102,241,0.2);
+        }
+
+        .habit-check.future {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .habits-week-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .week-nav-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .week-info { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+        /* ===== АРКИ ===== */
+        .arc-card {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+
+        .arc-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .arc-icon { font-size: 24px; flex-shrink: 0; }
+
+        .arc-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            flex: 1;
+        }
+
+        .arc-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .arc-progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .arc-progress-track {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-3);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .arc-progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .arc-pct { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+
+        .arc-subgoals { margin-top: 8px; }
+
+        .subgoal-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+
+        .subgoal-check {
+            width: 18px; height: 18px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-2);
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .subgoal-check.done { background: var(--accent); border-color: var(--accent); color: white; }
+
+        .subgoal-text {
+            font-size: 14px;
+            color: var(--text);
+            flex: 1;
+        }
+
+        .subgoal-text.done { text-decoration: line-through; text-decoration-color: var(--accent); text-decoration-thickness: 2px; opacity: 0.6; }
+
+        /* ===== ФОРМА СОЗДАНИЯ АРКИ ===== */
+        .new-arc-btn {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            color: var(--text-muted);
+            font-size: 15px;
+            cursor: pointer;
+            text-align: center;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .new-arc-btn:active { border-color: var(--accent); color: var(--accent); }
+
+        /* ===== ПРОБЛЕМЫ ===== */
+        .problem-card {
+            background: var(--bg-2);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+
+        .problem-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .problem-textarea {
+            width: 100%;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--text);
+            resize: none;
+            min-height: 70px;
+            font-family: inherit;
+            outline: none;
+            margin-bottom: 6px;
+        }
+
+        .problem-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        /* ===== ДОСТИЖЕНИЯ ===== */
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .achievement-card {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .achievement-card.unlocked {
+            border-color: rgba(99,102,241,0.4);
+            background: linear-gradient(135deg, rgba(99,102,241,0.1), var(--bg-2));
+        }
+
+        .achievement-card.locked { opacity: 0.5; }
+
+        .achievement-icon { font-size: 28px; margin-bottom: 6px; }
+        .achievement-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .achievement-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+        /* ===== БУРГЕР-КНОПКА ===== */
+        .burger-btn {
+            width: 40px;
+            height: 40px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            padding: 4px;
+            border-radius: 10px;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .burger-btn:active { background: var(--bg-3); }
+
+        .burger-line {
+            width: 22px;
+            height: 2px;
+            background: var(--text-muted);
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        /* ===== ШТОРКА-МЕНЮ ===== */
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .drawer-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .drawer {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 280px;
+            background: var(--bg-2);
+            border-right: 1px solid var(--border);
+            z-index: 201;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid var(--border);
+            padding-top: calc(20px + env(safe-area-inset-top, 0px));
+        }
+
+        .drawer-app-name {
+            font-size: 20px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 2px;
+        }
+
+        .drawer-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .drawer-level {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+
+        .drawer-level-badge {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .drawer-level-info { flex: 1; min-width: 0; }
+
+        .drawer-level-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 5px;
+        }
+
+        .drawer-level-track {
+            height: 5px;
+            background: var(--bg-2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .drawer-level-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        .drawer-level-xp {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .drawer-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 0;
+        }
+
+        .drawer-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 13px 20px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            color: var(--text-muted);
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .drawer-item:active { background: var(--bg-3); }
+
+        .drawer-item.active {
+            color: var(--accent-2);
+            background: rgba(99,102,241,0.08);
+        }
+
+        .drawer-item-icon {
+            font-size: 20px;
+            width: 28px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .drawer-item-label { flex: 1; }
+
+        .drawer-item.active .drawer-item-label {
+            font-weight: 700;
+        }
+
+        .drawer-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 20px;
+        }
+
+        .drawer-footer {
+            padding: 12px 20px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            border-top: 1px solid var(--border);
+        }
+
+        .drawer-sync-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .drawer-sync-btn:active {
+            border-color: var(--accent);
+            color: var(--accent-2);
+        }
+
+        /* ===== ВКЛАДКИ АРОК ===== */
+        .tabs {
+            display: flex;
+            background: var(--bg-3);
+            border-radius: 10px;
+            padding: 3px;
+            margin-bottom: 12px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 9px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--bg-2);
+            color: var(--accent-2);
+        }
+
+        /* ===== ГОД ===== */
+        .month-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .month-card {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .month-card.current-month {
+            border-color: rgba(99,102,241,0.4);
+        }
+
+        .month-card-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .month-goal-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px;
+            background: var(--bg-3);
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .month-goal-item.done { opacity: 0.5; }
+        .month-goal-item.done span:last-child { text-decoration: line-through; }
+
+        /* ===== МОДАЛЬНОЕ ОКНО ИМПОРТА/ЭКСПОРТА ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-sheet {
+            background: var(--bg-2);
+            border-radius: 20px 20px 0 0;
+            padding: 20px 20px calc(20px + var(--safe-bottom));
+            width: 100%;
+            max-height: 90dvh;
+            overflow-y: auto;
+        }
+
+        .modal-handle {
+            width: 36px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin: 0 auto 20px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .modal-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .modal-textarea {
+            width: 100%;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 13px;
+            font-family: monospace;
+            color: var(--text);
+            resize: none;
+            height: 100px;
+            outline: none;
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+
+        .modal-textarea:focus { border-color: var(--accent); }
+
+        .modal-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: opacity 0.2s;
+        }
+
+        .modal-btn:active { opacity: 0.8; }
+        .modal-btn.primary { background: var(--accent); color: white; }
+        .modal-btn.secondary { background: var(--bg-3); color: var(--text); }
+        .modal-btn.danger { background: rgba(239,68,68,0.15); color: var(--red); }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 9999;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== СКРОЛЛ ===== */
+        ::-webkit-scrollbar { display: none; }
+        * { scrollbar-width: none; }
+
+        /* ===== СИНХРОНИЗАЦИЯ ===== */
+        .sync-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ===== ФОРМА НОВОЙ АРКИ (МОДАЛЬНАЯ) ===== */
+        .form-group { margin-bottom: 12px; }
+        .form-label { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; display: block; }
+        .form-input {
+            width: 100%;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 11px 14px;
+            font-size: 15px;
+            color: var(--text);
+            outline: none;
+            font-family: inherit;
+        }
+        .form-input:focus { border-color: var(--accent); }
+
+        .emoji-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .emoji-opt {
+            width: 40px; height: 40px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-3);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .emoji-opt.selected { border-color: var(--accent); background: rgba(99,102,241,0.15); }
+
+        /* ===== АРХИВ ===== */
+        .archive-day {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+
+        .archive-day-date {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+
+        .archive-task {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            background: var(--bg-3);
+            border-radius: 8px;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .archive-task.done { opacity: 0.6; }
+        .archive-task.done span { text-decoration: line-through; }
+
+        /* ===== СПИСОК ЖЕЛАНИЙ ===== */
+        .wish-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 13px 12px;
+            margin-bottom: 8px;
+        }
+
+        .wish-check {
+            width: 22px; height: 22px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            flex-shrink: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-2);
+            transition: all 0.2s;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .wish-check.done { background: #f59e0b; border-color: #f59e0b; color: white; }
+
+        .wish-text.done { text-decoration: line-through; text-decoration-color: var(--accent); text-decoration-thickness: 2px; opacity: 0.6; }
+
+        /* Год — переключатель вью */
+        .year-toggle {
+            display: flex;
+            background: var(--bg-3);
+            border-radius: 10px;
+            padding: 3px;
+            margin-bottom: 12px;
+        }
+
+        .year-toggle-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 9px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .year-toggle-btn.active {
+            background: var(--bg-2);
+            color: var(--accent-2);
+        }
+
+        .year-view { display: none; }
+        .year-view.active { display: block; }
+
+        /* Статистика в шапке сегодня */
+        .today-stats {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .stat-chip {
+            flex: 1;
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-chip-val { font-size: 20px; font-weight: 700; color: var(--accent-2); }
+        .stat-chip-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- Шторка-оверлей -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- Боковое меню-шторка -->
+<div class="drawer" id="drawer">
+    <div class="drawer-header">
+        <div class="drawer-app-name">Мой Планер</div>
+        <div class="drawer-subtitle" id="drawerDate"></div>
+        <div class="drawer-level">
+            <div class="drawer-level-badge" id="levelBadge">Lv1</div>
+            <div class="drawer-level-info">
+                <div class="drawer-level-title" id="levelTitle">Новичок</div>
+                <div class="drawer-level-track">
+                    <div class="drawer-level-fill" id="levelXpFill" style="width:0%"></div>
+                </div>
+                <div class="drawer-level-xp" id="levelXpText">0 / 500 XP</div>
+            </div>
+        </div>
+    </div>
+    <nav class="drawer-nav">
+        <button class="drawer-item active" onclick="showPage('today', this)">
+            <span class="drawer-item-icon">📋</span>
+            <span class="drawer-item-label">План на день</span>
+        </button>
+        <button class="drawer-item" onclick="showPage('week', this)">
+            <span class="drawer-item-icon">📆</span>
+            <span class="drawer-item-label">Цели недели</span>
+        </button>
+        <button class="drawer-item" onclick="showPage('month', this)">
+            <span class="drawer-item-icon">📅</span>
+            <span class="drawer-item-label">Цели месяца</span>
+        </button>
+        <button class="drawer-item" onclick="showPage('year', this)">
+            <span class="drawer-item-icon">🚀</span>
+            <span class="drawer-item-label">Цели года</span>
+        </button>
+        <div class="drawer-divider"></div>
+        <button class="drawer-item" onclick="showPage('habits', this)">
+            <span class="drawer-item-icon">💪</span>
+            <span class="drawer-item-label">Привычки</span>
+        </button>
+        <button class="drawer-item" onclick="showPage('arcs', this)">
+            <span class="drawer-item-icon">🎯</span>
+            <span class="drawer-item-label">Арки целей</span>
+        </button>
+        <div class="drawer-divider"></div>
+        <button class="drawer-item" onclick="showPage('wishlist', this)">
+            <span class="drawer-item-icon">✨</span>
+            <span class="drawer-item-label">Список желаний</span>
+        </button>
+        <button class="drawer-item" onclick="showPage('problems', this)">
+            <span class="drawer-item-icon">🔍</span>
+            <span class="drawer-item-label">Проблемы</span>
+        </button>
+        <button class="drawer-item" onclick="showPage('achievements', this)">
+            <span class="drawer-item-icon">🏆</span>
+            <span class="drawer-item-label">Достижения</span>
+        </button>
+    </nav>
+    <div class="drawer-footer">
+        <button class="drawer-sync-btn" onclick="closeDrawer(); openSyncModal()">⇅ Синхронизация с ПК</button>
+    </div>
+</div>
+
+<!-- Шапка -->
+<div class="top-bar">
+    <button class="burger-btn" onclick="openDrawer()" id="burgerBtn">
+        <div class="burger-line"></div>
+        <div class="burger-line"></div>
+        <div class="burger-line"></div>
+    </button>
+    <div style="text-align:center; flex:1">
+        <div class="top-bar-title" id="topBarTitle">План на день</div>
+        <div class="top-bar-date" id="topBarDate"></div>
+    </div>
+    <div id="cloudIndicator" style="width:40px;text-align:center;font-size:18px" title="Облако Telegram">☁️</div>
+</div>
+
+<!-- Контент -->
+<div class="main-content">
+
+    <!-- СЕГОДНЯ -->
+    <div id="page-today" class="page active">
+        <div class="page-content">
+
+            <div class="progress-wrap">
+                <div class="progress-label">
+                    <span class="progress-label-text">Прогресс дня</span>
+                    <span class="progress-pct" id="progressPct">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">⭐ Главная задача</div>
+                <div id="mainTaskForm" class="input-row">
+                    <input class="task-input" id="mainTaskInput" placeholder="Одна главная цель на сегодня" onkeypress="if(event.key==='Enter')setMainTask()">
+                    <button class="add-btn" onclick="setMainTask()">+</button>
+                </div>
+                <ul class="task-list" id="mainTaskList"></ul>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📋 Задачи на сегодня</div>
+                <div class="input-row">
+                    <input class="task-input" id="dayTaskInput" placeholder="Что нужно сделать?" onkeypress="if(event.key==='Enter')addTask('day')">
+                    <button class="add-btn" onclick="addTask('day')">+</button>
+                </div>
+                <ul class="task-list" id="dayTaskList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- НЕДЕЛЯ -->
+    <div id="page-week" class="page">
+        <div class="page-content">
+            <div class="section">
+                <div class="section-title">🎯 Цели на неделю</div>
+                <div class="input-row">
+                    <input class="task-input" id="weekGoalInput" placeholder="Чего хотите достичь?" onkeypress="if(event.key==='Enter')addTask('week')">
+                    <button class="add-btn" onclick="addTask('week')">+</button>
+                </div>
+                <ul class="task-list" id="weekGoalList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- МЕСЯЦ -->
+    <div id="page-month" class="page">
+        <div class="page-content">
+            <div class="section">
+                <div class="section-title">📅 Цели на месяц</div>
+                <div class="input-row">
+                    <input class="task-input" id="monthGoalInput" placeholder="Цели на этот месяц" onkeypress="if(event.key==='Enter')addTask('month')">
+                    <button class="add-btn" onclick="addTask('month')">+</button>
+                </div>
+                <ul class="task-list" id="monthGoalList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ГОД -->
+    <div id="page-year" class="page">
+        <div class="page-content">
+            <div class="year-toggle">
+                <button class="year-toggle-btn active" onclick="showYearView('general', this)">Общие цели</button>
+                <button class="year-toggle-btn" onclick="showYearView('monthly', this)">По месяцам</button>
+            </div>
+            <div id="yearGeneralView" class="year-view active">
+                <div class="section">
+                    <div class="section-title">🚀 Цели на год</div>
+                    <div class="input-row">
+                        <input class="task-input" id="yearGoalInput" placeholder="Главные цели года" onkeypress="if(event.key==='Enter')addTask('year')">
+                        <button class="add-btn" onclick="addTask('year')">+</button>
+                    </div>
+                    <ul class="task-list" id="yearGoalList"></ul>
+                </div>
+            </div>
+            <div id="yearMonthlyView" class="year-view">
+                <div class="month-grid" id="monthGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПРИВЫЧКИ -->
+    <div id="page-habits" class="page">
+        <div class="page-content">
+            <div class="habits-week-nav">
+                <button class="week-nav-btn" onclick="changeHabitsWeek(-1)">‹</button>
+                <span class="week-info" id="habitsWeekInfo">Текущая неделя</span>
+                <button class="week-nav-btn" onclick="changeHabitsWeek(1)">›</button>
+            </div>
+            <div class="section">
+                <div class="section-title">💪 Привычки</div>
+                <div class="input-row">
+                    <input class="task-input" id="habitInput" placeholder="Новая привычка" onkeypress="if(event.key==='Enter')addHabit()">
+                    <button class="add-btn" onclick="addHabit()">+</button>
+                </div>
+                <div id="habitsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- АРКИ -->
+    <div id="page-arcs" class="page">
+        <div class="page-content">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchArcsTab('active', this)">Активные</button>
+                <button class="tab-btn" onclick="switchArcsTab('completed', this)">Завершённые</button>
+            </div>
+            <div id="arcsActiveView">
+                <button class="new-arc-btn" onclick="openNewArcModal()">+ Создать новую арку</button>
+                <div id="arcsList"></div>
+            </div>
+            <div id="arcsCompletedView" style="display:none">
+                <div id="completedArcsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЖЕЛАНИЯ -->
+    <div id="page-wishlist" class="page">
+        <div class="page-content">
+            <div class="section">
+                <div class="section-title">✨ Список желаний</div>
+                <div class="input-row">
+                    <input class="task-input" id="wishInput" placeholder="Добавить желание..." onkeypress="if(event.key==='Enter')addWish()">
+                    <button class="add-btn" onclick="addWish()">+</button>
+                </div>
+                <ul class="task-list" id="wishList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПРОБЛЕМЫ -->
+    <div id="page-problems" class="page">
+        <div class="page-content">
+            <div class="section">
+                <div class="section-title">🔍 Новая проблема</div>
+                <div class="input-row">
+                    <input class="task-input" id="problemInput" placeholder="Опишите проблему...">
+                    <button class="add-btn" onclick="addProblem()">+</button>
+                </div>
+            </div>
+            <div id="problemsList"></div>
+        </div>
+    </div>
+
+    <!-- ДОСТИЖЕНИЯ -->
+    <div id="page-achievements" class="page">
+        <div class="page-content">
+            <div class="achievements-grid" id="achievementsGrid"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Модальное окно синхронизации -->
+<div class="modal-overlay" id="syncModal" onclick="if(event.target===this)closeSyncModal()">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-title">⇅ Синхронизация</div>
+
+        <div style="margin-bottom:20px">
+            <div class="modal-title" style="font-size:15px;margin-bottom:6px">📤 Экспорт (мобильный → ПК)</div>
+            <p class="modal-desc">Скопируй код и вставь его в ПК-версию планера через кнопку «Экспорт для телефона»</p>
+            <textarea class="modal-textarea" id="exportCode" readonly placeholder="Нажми кнопку для генерации..."></textarea>
+            <button class="modal-btn primary" onclick="generateExport()">Сгенерировать код</button>
+            <button class="modal-btn secondary" onclick="copyExport()">📋 Скопировать код</button>
+        </div>
+
+        <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:16px">
+            <div class="modal-title" style="font-size:15px;margin-bottom:6px">📥 Импорт (ПК → мобильный)</div>
+            <p class="modal-desc">Вставь код из ПК-версии планера для загрузки данных на телефон</p>
+            <textarea class="modal-textarea" id="importCode" placeholder="Вставь код из ПК-версии..."></textarea>
+            <button class="modal-btn primary" onclick="importData()">Загрузить данные</button>
+        </div>
+
+        <button class="modal-btn secondary" onclick="closeSyncModal()">Закрыть</button>
+    </div>
+</div>
+
+<!-- Модальное окно новой арки -->
+<div class="modal-overlay" id="newArcModal" onclick="if(event.target===this)closeNewArcModal()">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-title">🎯 Новая арка цели</div>
+        <div class="form-group">
+            <label class="form-label">Название</label>
+            <input class="form-input" id="arcTitleInput" placeholder="Например: Выучить испанский">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Описание</label>
+            <textarea class="form-input" id="arcDescInput" placeholder="Зачем эта цель?" style="min-height:70px;resize:none"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Иконка</label>
+            <div class="emoji-picker" id="emojiPicker"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Цвет прогресса</label>
+            <div style="display:flex;gap:8px" id="colorPicker"></div>
+        </div>
+        <button class="modal-btn primary" onclick="createArc()" style="margin-top:8px">Создать арку</button>
+        <button class="modal-btn secondary" onclick="closeNewArcModal()">Отмена</button>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== ДАННЫЕ И КОНСТАНТЫ ==========
+const LEVELS = [
+    {level:1, title:'Новичок', xpRequired:0, maxXp:500},
+    {level:2, title:'Ученик', xpRequired:500, maxXp:1000},
+    {level:3, title:'Практик', xpRequired:1500, maxXp:1500},
+    {level:4, title:'Знаток', xpRequired:3000, maxXp:2000},
+    {level:5, title:'Мастер', xpRequired:5000, maxXp:2500},
+    {level:6, title:'Эксперт', xpRequired:7500, maxXp:3000},
+    {level:7, title:'Профессионал', xpRequired:10500, maxXp:4000},
+    {level:8, title:'Легенда', xpRequired:14500, maxXp:5000},
+    {level:9, title:'Чемпион', xpRequired:19500, maxXp:6000},
+    {level:10, title:'Мудрец', xpRequired:25500, maxXp:9999}
+];
+
+const XP_REWARDS = { mainTask: 50, dayTask: 10, habit: 15 };
+
+const ACHIEVEMENTS = [
+    {id:1, icon:'⚡', title:'Первый шаг', description:'Создай первую задачу'},
+    {id:4, icon:'⭐', title:'Приоритет', description:'Установи главную задачу дня'},
+    {id:9, icon:'💪', title:'Фитнес-трекер', description:'Добавь 5 привычек'},
+    {id:10, icon:'📋', title:'Планировщик', description:'10 целей на месяц'},
+    {id:13, icon:'🎯', title:'50 задач', description:'Создай 50 задач'},
+    {id:19, icon:'📅', title:'Месяц вперёд', description:'Первая цель на месяц'},
+    {id:21, icon:'📆', title:'Неделя целей', description:'5 целей на неделю'},
+    {id:22, icon:'🏆', title:'Арки', description:'Создай первую арку цели'},
+    {id:23, icon:'✨', title:'Мечтатель', description:'Добавь первое желание'}
+];
+
+const EMOJIS = ['🎯','🚀','💡','📚','💪','🌟','🔥','💎','🏆','🎨','🎵','🌱','⚡','🦋','🌊'];
+const COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899'];
+
+let habitsWeekOffset = 0;
+let arcs = [];
+let selectedEmoji = '🎯';
+let selectedColor = '#6366f1';
+
+// ========== БУРГЕР-МЕНЮ ==========
+function openDrawer() {
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawerOverlay').classList.add('open');
+}
+
+function closeDrawer() {
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+// ========== НАВИГАЦИЯ ==========
+function getWeekRange() {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diff);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+    const from = `${monday.getDate()} ${months[monday.getMonth()]}`;
+    const to   = `${sunday.getDate()} ${months[sunday.getMonth()]}`;
+    return `${from} — ${to}`;
+}
+
+function showPage(name, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.drawer-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    closeDrawer();
+
+    const titles = {
+        today:'План на день', week:'Цели недели', month:'Цели месяца',
+        year:'Цели года', habits:'Привычки', arcs:'Арки целей',
+        wishlist:'Список желаний', problems:'Проблемы', achievements:'Достижения'
+    };
+    document.getElementById('topBarTitle').textContent = titles[name] || '';
+
+    // Дата под заголовком — для недели показываем диапазон
+    if (name === 'week') {
+        document.getElementById('topBarDate').textContent = getWeekRange();
+    } else if (name === 'today') {
+        document.getElementById('topBarDate').textContent = window._todayDateStr || '';
+    } else if (name === 'month') {
+        const m = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+        const now = new Date();
+        document.getElementById('topBarDate').textContent = `${m[now.getMonth()]}`;
+    } else if (name === 'year') {
+        document.getElementById('topBarDate').textContent = `${new Date().getFullYear()} год`;
+    } else {
+        document.getElementById('topBarDate').textContent = '';
+    }
+
+    if (name === 'year') renderMonthlyCalendar();
+    if (name === 'arcs') { loadArcs(); renderArcs(); }
+    if (name === 'achievements') renderAchievements();
+    if (name === 'problems') renderProblems();
+    if (name === 'habits') renderHabits();
+    if (name === 'wishlist') renderWishList();
+}
+
+// ========== ЗАДАЧИ ==========
+function addTask(type) {
+    const ids = {day:'dayTaskInput', week:'weekGoalInput', month:'monthGoalInput', year:'yearGoalInput'};
+    const listIds = {day:'dayTaskList', week:'weekGoalList', month:'monthGoalList', year:'yearGoalList'};
+    const input = document.getElementById(ids[type]);
+    const text = input.value.trim();
+    if (!text) return;
+
+    const data = loadAllData();
+    if (!data[type]) data[type] = [];
+    data[type].push({text, completed: false});
+    saveAllData(data);
+    input.value = '';
+    renderList(type);
+    updateProgress();
+    checkAchievements();
+    showToast('Задача добавлена');
+}
+
+function setMainTask() {
+    const input = document.getElementById('mainTaskInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const data = loadAllData();
+    if (!data.mainTask) data.mainTask = [];
+    data.mainTask.push({text, completed: false});
+    saveAllData(data);
+    input.value = '';
+    document.getElementById('mainTaskForm').style.display = 'none';
+    renderMainTask();
+    updateProgress();
+    checkAchievements();
+    addXp(0); // обновить UI
+}
+
+function toggleTask(type, index) {
+    const data = loadAllData();
+    const key = type === 'main' ? 'mainTask' : type;
+    if (data[key] && data[key][index]) {
+        const wasCompleted = data[key][index].completed;
+        data[key][index].completed = !wasCompleted;
+        if (!wasCompleted) addXp(type === 'main' ? XP_REWARDS.mainTask : XP_REWARDS.dayTask);
+    }
+    saveAllData(data);
+    if (type === 'main') renderMainTask(); else renderList(type);
+    updateProgress();
+    checkAchievements();
+}
+
+function deleteTask(type, index) {
+    const data = loadAllData();
+    const key = type === 'main' ? 'mainTask' : type;
+    if (data[key]) data[key].splice(index, 1);
+    saveAllData(data);
+    if (type === 'main') { renderMainTask(); document.getElementById('mainTaskForm').style.display = 'flex'; }
+    else renderList(type);
+    updateProgress();
+}
+
+function renderMainTask() {
+    const data = loadAllData();
+    const list = document.getElementById('mainTaskList');
+    const form = document.getElementById('mainTaskForm');
+    const tasks = data.mainTask || [];
+    list.innerHTML = '';
+
+    if (tasks.length === 0) {
+        form.style.display = 'flex';
+        return;
+    }
+    form.style.display = 'none';
+
+    tasks.forEach((t, i) => {
+        const li = document.createElement('div');
+        li.className = 'main-task-item' + (t.completed ? ' completed' : '');
+        li.style.marginBottom = '8px';
+        li.innerHTML = `
+            <div class="task-checkbox ${t.completed ? 'checked' : ''}" onclick="toggleTask('main', ${i})"></div>
+            <span class="task-text" style="${t.completed ? 'text-decoration:line-through;text-decoration-color:var(--accent);text-decoration-thickness:2px;opacity:0.6' : ''}">${escHtml(t.text)}</span>
+            <button class="task-delete" onclick="deleteTask('main', ${i})">✕</button>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function renderList(type) {
+    const listIds = {day:'dayTaskList', week:'weekGoalList', month:'monthGoalList', year:'yearGoalList'};
+    const data = loadAllData();
+    const list = document.getElementById(listIds[type]);
+    const tasks = data[type] || [];
+    list.innerHTML = '';
+
+    if (tasks.length === 0) {
+        list.innerHTML = '<div class="empty-state">Нет задач</div>';
+        return;
+    }
+
+    tasks.forEach((t, i) => {
+        const li = document.createElement('li');
+        li.className = 'task-item' + (t.completed ? ' completed' : '');
+        li.innerHTML = `
+            <div class="task-checkbox ${t.completed ? 'checked' : ''}" onclick="toggleTask('${type}', ${i})"></div>
+            <span class="task-text">${escHtml(t.text)}</span>
+            <button class="task-delete" onclick="deleteTask('${type}', ${i})">✕</button>
+        `;
+        list.appendChild(li);
+    });
+}
+
+// ========== ПРОГРЕСС ==========
+function updateProgress() {
+    const data = loadAllData();
+    const main = data.mainTask || [];
+    const day = data.day || [];
+    const all = [...main, ...day];
+    const total = all.length;
+    const done = all.filter(t => t.completed).length;
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+}
+
+// ========== XP и УРОВЕНЬ ==========
+function getLevelData() {
+    const saved = localStorage.getItem('playerLevel');
+    if (saved) return JSON.parse(saved);
+    return {level: 1, xp: 0, title: 'Новичок'};
+}
+
+function saveLevelData(d) { cloudSet('playerLevel', JSON.stringify(d)); }
+
+function addXp(amount) {
+    const d = getLevelData();
+    d.xp = (d.xp || 0) + amount;
+    const lvl = LEVELS.find(l => l.level === (d.level || 1)) || LEVELS[0];
+    if (d.xp >= lvl.maxXp && d.level < 10) {
+        d.xp -= lvl.maxXp;
+        d.level++;
+        const newLvl = LEVELS.find(l => l.level === d.level);
+        if (newLvl) d.title = newLvl.title;
+        showToast('🎉 Уровень повышен! ' + d.title);
+    }
+    saveLevelData(d);
+    renderLevelUI();
+}
+
+function renderLevelUI() {
+    const d = getLevelData();
+    const lvl = LEVELS.find(l => l.level === (d.level || 1)) || LEVELS[0];
+    const pct = Math.min(100, Math.round(((d.xp || 0) / lvl.maxXp) * 100));
+
+    const badge = document.getElementById('levelBadge');
+    const title = document.getElementById('levelTitle');
+    const fill  = document.getElementById('levelXpFill');
+    const xpTxt = document.getElementById('levelXpText');
+
+    if (badge) badge.textContent = 'Lv' + (d.level || 1);
+    if (title) title.textContent = d.title || lvl.title;
+    if (fill)  fill.style.width = pct + '%';
+    if (xpTxt) xpTxt.textContent = `${d.xp || 0} / ${lvl.maxXp} XP`;
+}
+
+// ========== ПРИВЫЧКИ ==========
+function getWeekKey(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset * 7);
+    const monday = new Date(d);
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    monday.setDate(d.getDate() + diff);
+    return monday.toISOString().slice(0, 10);
+}
+
+function getWeekDays(offset) {
+    const weekKey = getWeekKey(offset);
+    const monday = new Date(weekKey);
+    return Array.from({length: 7}, (_, i) => {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        return d;
+    });
+}
+
+function addHabit() {
+    const input = document.getElementById('habitInput');
+    const name = input.value.trim();
+    if (!name) return;
+    const names = JSON.parse(localStorage.getItem('habitsNames') || '[]');
+    if (names.includes(name)) { showToast('Такая привычка уже есть'); return; }
+    names.push(name);
+    cloudSet('habitsNames', JSON.stringify(names));
+    input.value = '';
+    renderHabits();
+    checkAchievements();
+    showToast('Привычка добавлена');
+}
+
+function deleteHabit(name) {
+    const names = JSON.parse(localStorage.getItem('habitsNames') || '[]');
+    const filtered = names.filter(n => n !== name);
+    cloudSet('habitsNames', JSON.stringify(filtered));
+    renderHabits();
+}
+
+function toggleHabit(name, dayIndex) {
+    const weekKey = getWeekKey(habitsWeekOffset);
+    const weekData = JSON.parse(localStorage.getItem(`habitsWeek_${weekKey}`) || '{}');
+    if (!weekData[name]) weekData[name] = Array(7).fill(false);
+    weekData[name][dayIndex] = !weekData[name][dayIndex];
+    if (weekData[name][dayIndex]) addXp(XP_REWARDS.habit);
+    cloudSet(`habitsWeek_${weekKey}`, JSON.stringify(weekData));
+    renderHabits();
+    checkAchievements();
+}
+
+function changeHabitsWeek(dir) {
+    habitsWeekOffset += dir;
+    renderHabits();
+}
+
+function renderHabits() {
+    const names = JSON.parse(localStorage.getItem('habitsNames') || '[]');
+    const weekKey = getWeekKey(habitsWeekOffset);
+    const weekData = JSON.parse(localStorage.getItem(`habitsWeek_${weekKey}`) || '{}');
+    const days = getWeekDays(habitsWeekOffset);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const dayLabels = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const container = document.getElementById('habitsList');
+    container.innerHTML = '';
+
+    // Неделя инфо
+    const from = days[0].toLocaleDateString('ru', {day:'numeric', month:'short'});
+    const to = days[6].toLocaleDateString('ru', {day:'numeric', month:'short'});
+    document.getElementById('habitsWeekInfo').textContent = `${from} — ${to}`;
+
+    if (names.length === 0) {
+        container.innerHTML = '<div class="empty-state">Нет привычек. Добавь первую!</div>';
+        return;
+    }
+
+    names.forEach(name => {
+        const checks = weekData[name] || Array(7).fill(false);
+        const div = document.createElement('div');
+        div.className = 'habit-item';
+        div.innerHTML = `
+            <div class="habit-header">
+                <span class="habit-name-text">${escHtml(name)}</span>
+                <button class="habit-delete" onclick="deleteHabit('${name.replace(/'/g,"\\'")}')">✕</button>
+            </div>
+            <div class="habit-days">
+                ${days.map((d, i) => {
+                    d.setHours(0,0,0,0);
+                    const isToday = d.getTime() === today.getTime();
+                    const isFuture = d > today;
+                    const done = checks[i];
+                    return `<div class="habit-day">
+                        <span class="habit-day-label">${dayLabels[i]}</span>
+                        <div class="habit-check ${done ? 'checked' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}"
+                             onclick="toggleHabit('${name.replace(/'/g,"\\'")}', ${i})"></div>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// ========== АРКИ ==========
+function loadArcs() {
+    const saved = localStorage.getItem('goalArcs');
+    if (saved) arcs = JSON.parse(saved);
+    else arcs = [];
+}
+
+function saveArcs() { cloudSet('goalArcs', JSON.stringify(arcs)); }
+
+function renderArcs() {
+    const active = arcs.filter(a => !a.completed);
+    const completed = arcs.filter(a => a.completed);
+
+    const activeList = document.getElementById('arcsList');
+    const completedList = document.getElementById('completedArcsList');
+    activeList.innerHTML = '';
+    completedList.innerHTML = '';
+
+    if (active.length === 0) activeList.innerHTML = '<div class="empty-state">Нет активных арок</div>';
+    active.forEach((arc, i) => renderArcCard(arc, i, activeList, false));
+
+    if (completed.length === 0) completedList.innerHTML = '<div class="empty-state">Нет завершённых арок</div>';
+    completed.forEach((arc, i) => renderArcCard(arc, i, completedList, true));
+}
+
+function renderArcCard(arc, idx, container, isCompleted) {
+    const total = arc.subgoals ? arc.subgoals.length : 0;
+    const done = arc.subgoals ? arc.subgoals.filter(s => s.completed).length : 0;
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    const arcIndex = arcs.indexOf(arc);
+
+    const div = document.createElement('div');
+    div.className = 'arc-card';
+    div.innerHTML = `
+        <div class="arc-header">
+            <span class="arc-icon">${arc.icon || '🎯'}</span>
+            <div style="flex:1">
+                <div class="arc-title">${escHtml(arc.title)}</div>
+                ${arc.description ? `<div class="arc-desc">${escHtml(arc.description)}</div>` : ''}
+            </div>
+            ${!isCompleted ? `<button class="task-delete" onclick="completeArc(${arcIndex})">✓</button>` : ''}
+            <button class="task-delete" onclick="deleteArc(${arcIndex})">✕</button>
+        </div>
+        <div class="arc-progress-wrap">
+            <div class="arc-progress-track">
+                <div class="arc-progress-fill" style="width:${pct}%;background:${arc.color || '#6366f1'}"></div>
+            </div>
+            <span class="arc-pct">${pct}%</span>
+        </div>
+        <div class="arc-subgoals" id="arcSubgoals_${arcIndex}">
+            ${(arc.subgoals || []).map((s, si) => `
+                <div class="subgoal-item">
+                    <div class="subgoal-check ${s.completed ? 'done' : ''}" onclick="toggleSubgoal(${arcIndex}, ${si})">${s.completed ? '✓' : ''}</div>
+                    <span class="subgoal-text ${s.completed ? 'done' : ''}">${escHtml(s.title)}</span>
+                    <button class="task-delete" onclick="deleteSubgoal(${arcIndex}, ${si})">✕</button>
+                </div>
+            `).join('')}
+        </div>
+        <div class="input-row" style="margin-top:8px">
+            <input class="task-input" style="font-size:13px;padding:8px 10px" placeholder="Добавить шаг..." id="subInput_${arcIndex}" onkeypress="if(event.key==='Enter')addSubgoal(${arcIndex})">
+            <button class="add-btn" style="padding:8px 12px;font-size:13px" onclick="addSubgoal(${arcIndex})">+</button>
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function openNewArcModal() {
+    selectedEmoji = '🎯';
+    selectedColor = '#6366f1';
+    document.getElementById('arcTitleInput').value = '';
+    document.getElementById('arcDescInput').value = '';
+
+    const ep = document.getElementById('emojiPicker');
+    ep.innerHTML = EMOJIS.map(e => `<div class="emoji-opt ${e === selectedEmoji ? 'selected' : ''}" onclick="selectEmoji('${e}', this)">${e}</div>`).join('');
+
+    const cp = document.getElementById('colorPicker');
+    cp.innerHTML = COLORS.map(c => `<div style="width:32px;height:32px;border-radius:8px;background:${c};cursor:pointer;border:3px solid ${c === selectedColor ? 'white' : 'transparent'}" onclick="selectColor('${c}', this)"></div>`).join('');
+
+    document.getElementById('newArcModal').classList.add('active');
+}
+
+function closeNewArcModal() { document.getElementById('newArcModal').classList.remove('active'); }
+
+function selectEmoji(e, el) {
+    selectedEmoji = e;
+    document.querySelectorAll('.emoji-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+function selectColor(c, el) {
+    selectedColor = c;
+    document.querySelectorAll('#colorPicker div').forEach(o => o.style.borderColor = 'transparent');
+    el.style.borderColor = 'white';
+}
+
+function createArc() {
+    const title = document.getElementById('arcTitleInput').value.trim();
+    if (!title) { showToast('Введи название арки'); return; }
+    loadArcs();
+    arcs.push({
+        id: Date.now(),
+        title,
+        description: document.getElementById('arcDescInput').value.trim(),
+        icon: selectedEmoji,
+        color: selectedColor,
+        completed: false,
+        subgoals: []
+    });
+    saveArcs();
+    closeNewArcModal();
+    renderArcs();
+    checkAchievements();
+    showToast('Арка создана!');
+}
+
+function addSubgoal(arcIndex) {
+    const input = document.getElementById(`subInput_${arcIndex}`);
+    const text = input.value.trim();
+    if (!text) return;
+    loadArcs();
+    if (!arcs[arcIndex].subgoals) arcs[arcIndex].subgoals = [];
+    arcs[arcIndex].subgoals.push({id: Date.now(), title: text, completed: false});
+    saveArcs();
+    input.value = '';
+    renderArcs();
+}
+
+function toggleSubgoal(arcIndex, subIndex) {
+    loadArcs();
+    arcs[arcIndex].subgoals[subIndex].completed = !arcs[arcIndex].subgoals[subIndex].completed;
+    saveArcs();
+    renderArcs();
+}
+
+function deleteSubgoal(arcIndex, subIndex) {
+    loadArcs();
+    arcs[arcIndex].subgoals.splice(subIndex, 1);
+    saveArcs();
+    renderArcs();
+}
+
+function completeArc(arcIndex) {
+    loadArcs();
+    arcs[arcIndex].completed = true;
+    saveArcs();
+    renderArcs();
+    showToast('🎉 Арка завершена!');
+}
+
+function deleteArc(arcIndex) {
+    loadArcs();
+    arcs.splice(arcIndex, 1);
+    saveArcs();
+    renderArcs();
+}
+
+function switchArcsTab(tab, btn) {
+    document.getElementById('arcsActiveView').style.display = tab === 'active' ? 'block' : 'none';
+    document.getElementById('arcsCompletedView').style.display = tab === 'completed' ? 'block' : 'none';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+}
+
+// ========== СПИСОК ЖЕЛАНИЙ ==========
+function addWish() {
+    const input = document.getElementById('wishInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const data = loadAllData();
+    if (!data.wish) data.wish = [];
+    data.wish.push({text, completed: false});
+    saveAllData(data);
+    input.value = '';
+    renderWishList();
+    checkAchievements();
+    showToast('Желание добавлено');
+}
+
+function renderWishList() {
+    const data = loadAllData();
+    const list = document.getElementById('wishList');
+    const items = data.wish || [];
+    list.innerHTML = '';
+
+    if (items.length === 0) { list.innerHTML = '<div class="empty-state">Нет желаний</div>'; return; }
+
+    items.forEach((w, i) => {
+        const li = document.createElement('li');
+        li.className = 'wish-item';
+        li.innerHTML = `
+            <div class="wish-check ${w.completed ? 'done' : ''}" onclick="toggleWish(${i})">${w.completed ? '✓' : ''}</div>
+            <span class="task-text wish-text ${w.completed ? 'done' : ''}">${escHtml(w.text)}</span>
+            <button class="task-delete" onclick="deleteWish(${i})">✕</button>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function toggleWish(i) {
+    const data = loadAllData();
+    data.wish[i].completed = !data.wish[i].completed;
+    saveAllData(data);
+    renderWishList();
+}
+
+function deleteWish(i) {
+    const data = loadAllData();
+    data.wish.splice(i, 1);
+    saveAllData(data);
+    renderWishList();
+}
+
+// ========== ПРОБЛЕМЫ ==========
+function addProblem() {
+    const input = document.getElementById('problemInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const problems = JSON.parse(localStorage.getItem('problemsData') || '[]');
+    problems.push({id: Date.now(), text, solution: '', date: new Date().toISOString()});
+    cloudSet('problemsData', JSON.stringify(problems));
+    input.value = '';
+    renderProblems();
+    showToast('Проблема добавлена');
+}
+
+function saveSolution(id, val) {
+    const problems = JSON.parse(localStorage.getItem('problemsData') || '[]');
+    const p = problems.find(p => p.id === id);
+    if (p) p.solution = val;
+    cloudSet('problemsData', JSON.stringify(problems));
+}
+
+function deleteProblem(id) {
+    let problems = JSON.parse(localStorage.getItem('problemsData') || '[]');
+    problems = problems.filter(p => p.id !== id);
+    cloudSet('problemsData', JSON.stringify(problems));
+    renderProblems();
+}
+
+function renderProblems() {
+    const problems = JSON.parse(localStorage.getItem('problemsData') || '[]');
+    const container = document.getElementById('problemsList');
+    container.innerHTML = '';
+
+    if (problems.length === 0) { container.innerHTML = '<div class="empty-state">Нет проблем. Это хорошо!</div>'; return; }
+
+    problems.slice().reverse().forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'problem-card';
+        div.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <div class="problem-title">${escHtml(p.text)}</div>
+                <button class="task-delete" onclick="deleteProblem(${p.id})">✕</button>
+            </div>
+            <div class="problem-label">Решение</div>
+            <textarea class="problem-textarea" placeholder="Как решить эту проблему?" onchange="saveSolution(${p.id}, this.value)">${escHtml(p.solution || '')}</textarea>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// ========== ГОД ==========
+function showYearView(type, btn) {
+    document.getElementById('yearGeneralView').classList.toggle('active', type === 'general');
+    document.getElementById('yearMonthlyView').classList.toggle('active', type === 'monthly');
+    document.querySelectorAll('.year-toggle-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    if (type === 'monthly') renderMonthlyCalendar();
+}
+
+function renderMonthlyCalendar() {
+    const goals = JSON.parse(localStorage.getItem('monthlyGoals') || JSON.stringify(Array(12).fill(null).map(() => [])));
+    const grid = document.getElementById('monthGrid');
+    const months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    const curMonth = new Date().getMonth();
+    grid.innerHTML = '';
+    months.forEach((name, i) => {
+        const items = goals[i] || [];
+        const div = document.createElement('div');
+        div.className = 'month-card' + (i === curMonth ? ' current-month' : '');
+        div.innerHTML = `
+            <div class="month-card-name">${name}</div>
+            ${items.map((g, gi) => `
+                <div class="month-goal-item ${g.completed ? 'done' : ''}">
+                    <span>${g.completed ? '✓' : '·'}</span>
+                    <span>${escHtml(g.text)}</span>
+                </div>
+            `).join('') || '<div style="font-size:12px;color:var(--text-light);padding:4px 0">Нет целей</div>'}
+        `;
+        grid.appendChild(div);
+    });
+}
+
+// ========== ДОСТИЖЕНИЯ ==========
+function checkAchievements() {
+    const data = loadAllData();
+    const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements') || '[]');
+    const names = JSON.parse(localStorage.getItem('habitsNames') || '[]');
+    const toUnlock = [];
+
+    const totalTasks = (data.mainTask || []).length + (data.day || []).length;
+    const monthGoals = (data.month || []).length;
+    const weekGoals = (data.week || []).length;
+    const wishes = (data.wish || []).length;
+
+    const rules = [
+        {id:1, check: totalTasks >= 1},
+        {id:4, check: (data.mainTask || []).length >= 1},
+        {id:9, check: names.length >= 5},
+        {id:10, check: monthGoals >= 10},
+        {id:13, check: totalTasks >= 50},
+        {id:19, check: monthGoals >= 1},
+        {id:21, check: weekGoals >= 5},
+        {id:22, check: arcs.length >= 1},
+        {id:23, check: wishes >= 1}
+    ];
+
+    rules.forEach(r => {
+        if (r.check && !unlocked.includes(r.id)) toUnlock.push(r.id);
+    });
+
+    if (toUnlock.length > 0) {
+        cloudSet('unlockedAchievements', JSON.stringify([...unlocked, ...toUnlock]));
+        const a = ACHIEVEMENTS.find(a => a.id === toUnlock[0]);
+        if (a) showToast(`🏆 ${a.title}`);
+    }
+}
+
+function renderAchievements() {
+    const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements') || '[]');
+    const grid = document.getElementById('achievementsGrid');
+    grid.innerHTML = '';
+    ACHIEVEMENTS.forEach(a => {
+        const isUnlocked = unlocked.includes(a.id);
+        const div = document.createElement('div');
+        div.className = 'achievement-card ' + (isUnlocked ? 'unlocked' : 'locked');
+        div.innerHTML = `
+            <div class="achievement-icon">${a.icon}</div>
+            <div class="achievement-title">${a.title}</div>
+            <div class="achievement-desc">${a.description}</div>
+        `;
+        grid.appendChild(div);
+    });
+}
+
+// ========== СИНХРОНИЗАЦИЯ ==========
+function collectAllData() {
+    const keys = [
+        'dailyPlannerData', 'habitsData', 'plannerStats',
+        'unlockedAchievements', 'habitsNames', 'monthlyGoals',
+        'problemsData', 'goalArcs', 'playerLevel', 'daysArchive',
+        'darkMode', 'gameMode', 'lastActiveDate'
+    ];
+    const result = {};
+    keys.forEach(k => {
+        const v = localStorage.getItem(k);
+        if (v !== null) result[k] = v;
+    });
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('habitsWeek_')) result[k] = localStorage.getItem(k);
+    }
+    return result;
+}
+
+function generateExport() {
+    const data = collectAllData();
+    const json = JSON.stringify(data);
+    const encoded = btoa(unescape(encodeURIComponent(json)));
+    document.getElementById('exportCode').value = encoded;
+    showToast('Код сгенерирован');
+}
+
+function copyExport() {
+    const ta = document.getElementById('exportCode');
+    if (!ta.value) { showToast('Сначала сгенерируй код'); return; }
+    ta.select();
+    document.execCommand('copy');
+    showToast('📋 Скопировано!');
+}
+
+function importData() {
+    const code = document.getElementById('importCode').value.trim();
+    if (!code) { showToast('Вставь код для импорта'); return; }
+    try {
+        const json = decodeURIComponent(escape(atob(code)));
+        const data = JSON.parse(json);
+        Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, v));
+        closeSyncModal();
+        location.reload();
+    } catch(e) {
+        showToast('❌ Неверный код. Проверь и попробуй снова');
+    }
+}
+
+function openSyncModal() {
+    document.getElementById('exportCode').value = '';
+    document.getElementById('importCode').value = '';
+    document.getElementById('syncModal').classList.add('active');
+}
+
+function closeSyncModal() { document.getElementById('syncModal').classList.remove('active'); }
+
+// ========== TELEGRAM CLOUD STORAGE ==========
+const tgCloud = window.Telegram?.WebApp?.CloudStorage;
+
+// Все ключи которые синхронизируем в облако
+const CLOUD_KEYS = [
+    'dailyPlannerData', 'habitsNames', 'monthlyGoals',
+    'problemsData', 'goalArcs', 'playerLevel', 'daysArchive',
+    'unlockedAchievements', 'lastActiveDate'
+];
+
+// Сохранить ключ в облако Telegram + localStorage (двойная защита)
+function cloudSet(key, value) {
+    localStorage.setItem(key, value);
+    if (tgCloud) {
+        tgCloud.setItem(key, value, () => {});
+    }
+}
+
+// Загрузить из облака Telegram, если нет — из localStorage
+function cloudGet(key, callback) {
+    if (tgCloud) {
+        tgCloud.getItem(key, (err, value) => {
+            if (!err && value) {
+                localStorage.setItem(key, value); // синхронизируем в локал
+                callback(value);
+            } else {
+                callback(localStorage.getItem(key));
+            }
+        });
+    } else {
+        callback(localStorage.getItem(key));
+    }
+}
+
+// Загрузить все данные из облака при старте
+function syncFromCloud(onDone) {
+    if (!tgCloud) { onDone(); return; }
+    let remaining = CLOUD_KEYS.length;
+    CLOUD_KEYS.forEach(key => {
+        tgCloud.getItem(key, (err, value) => {
+            if (!err && value) {
+                localStorage.setItem(key, value);
+            }
+            remaining--;
+            if (remaining === 0) onDone();
+        });
+    });
+    // Также подгружаем недели привычек
+    tgCloud.getKeys((err, keys) => {
+        if (!err && keys) {
+            keys.filter(k => k.startsWith('habitsWeek_')).forEach(k => {
+                tgCloud.getItem(k, (e, v) => {
+                    if (!e && v) localStorage.setItem(k, v);
+                });
+            });
+        }
+    });
+}
+
+// Обновлён индикатор облака
+function setCloudIndicator(synced) {
+    const el = document.getElementById('cloudIndicator');
+    if (el) el.textContent = synced ? '☁️' : '💾';
+    if (el) el.title = synced ? 'Данные в облаке Telegram' : 'Только локально';
+}
+
+// ========== ХРАНИЛИЩЕ ==========
+function loadAllData() {
+    return JSON.parse(localStorage.getItem('dailyPlannerData') || '{}');
+}
+
+function saveAllData(data) {
+    const str = JSON.stringify(data);
+    cloudSet('dailyPlannerData', str);
+}
+
+// ========== УТИЛИТЫ ==========
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ========== TELEGRAM WEBAPP ==========
+function initTelegram() {
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        setCloudIndicator(!!tgCloud);
+
+        tg.BackButton.onClick(() => {
+            showPage('today', document.querySelector('.drawer-item'));
+        });
+    } else {
+        setCloudIndicator(false);
+    }
+}
+
+// ========== ИНИЦИАЛИЗАЦИЯ ==========
+function init() {
+    initTelegram();
+
+    // Дата в шапке и шторке
+    const now = new Date();
+    const days = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+    const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+    window._todayDateStr = dateStr;
+    document.getElementById('topBarDate').textContent = dateStr;
+    document.getElementById('drawerDate').textContent = dateStr;
+
+    // Сначала синхронизируем из облака Telegram, потом рендерим
+    syncFromCloud(() => {
+        renderMainTask();
+        renderList('day');
+        renderList('week');
+        renderList('month');
+        renderList('year');
+        renderLevelUI();
+        updateProgress();
+        loadArcs();
+        checkDayChange();
+    });
+}
+
+function checkDayChange() {
+    const today = new Date().toISOString().slice(0, 10);
+    const last = localStorage.getItem('lastActiveDate');
+    if (last && last !== today) {
+        archiveDay(last);
+    }
+    cloudSet('lastActiveDate', today);
+}
+
+function archiveDay(dateKey) {
+    const data = loadAllData();
+    const archive = JSON.parse(localStorage.getItem('daysArchive') || '[]');
+    archive.unshift({
+        date: dateKey,
+        mainTask: data.mainTask || [],
+        dayTasks: data.day || [],
+        completedCount: {
+            main: (data.mainTask || []).filter(t => t.completed).length,
+            day: (data.day || []).filter(t => t.completed).length
+        }
+    });
+    const recent = archive.slice(0, 30);
+    cloudSet('daysArchive', JSON.stringify(recent));
+    // Очищаем задачи дня
+    data.mainTask = [];
+    data.day = [];
+    saveAllData(data);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
